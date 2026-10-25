@@ -1,0 +1,13 @@
+{
+  "name": "ecs-hands-on",
+  "private": true,
+  "workspaces": ["apps/web", "infra"],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "cdk": "npm run cdk --workspace @ecs-hands-on/infra --",
+    "infra:build": "npm run build --workspace @ecs-hands-on/infra",
+    "infra:synth": "npm run synth --workspace @ecs-hands-on/infra"
+  }
+}
