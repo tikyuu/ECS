@@ -1,6 +1,6 @@
 # ECS hands-on
 
-ECSの構築・デプロイ・監視・障害対応を学ぶためのタスク管理アプリです。フロントエンドとTypeScriptのCDK実行環境を用意しています。AWSリソースは未定義・未デプロイで、会話で設定を確認しながら一段階ずつ実装します。
+ECSの構築・デプロイ・監視・障害対応を学ぶためのタスク管理アプリです。フロントエンドとTypeScriptのCDK実行環境を用意し、現在はVPCのみを定義しています。AWSへのデプロイは未実施です。会話で設定を確認しながら一段階ずつ実装します。
 
 ## CDK実行環境
 
@@ -29,11 +29,9 @@ npm run infra:synth
 
 `infra:build` はTypeScriptを `infra/dist/` へコンパイルします。`infra:synth` は `tsx` でアプリを実行してCloudFormationテンプレートを `infra/cdk.out/` へ生成します。`npm run typecheck` でフロントとインフラの両方を型チェックできます。
 
-`TaskflowDevStack`（クラス名は `ApplicationStack`）は空のスタックです。VPCの実装を取り除いたこの状態を、Git管理の開始点にしています。アカウント・リージョンは未固定で、synthはAWS認証情報なしで実行できます。
+`TaskflowDevStack`（クラス名は `ApplicationStack`）から `Network` Constructを呼び出し、名前 `vpc-ecs-dev`、CIDR `10.0.0.0/20` のVPCを定義しています。DNSは有効です。サブネット・IGW・NATやdefault SG変更用の追加リソースは作成しません。Gitの初回コミットは、このVPC実装を追加する前の空のスタックです。
 
-空のため、synth時には「Resources section must exist and be non-empty」という検証警告が出ます。synth自体は成功しますが、このままデプロイする用途ではありません。CDKの推奨feature flagsは別のステップで扱います。
-
-設計上は東京リージョン、VPCのCIDRは `10.0.0.0/20` を使用する方針です。まだコードには反映していません。
+設計上のリージョンは東京ですが、現在のスタックのアカウント・リージョンは未固定です。synthはAWS認証情報なしで実行できます。デプロイ先とCDKの推奨feature flagsは別のステップで扱います。
 
 AWS CLIはインストール済みです。認証設定の確認、`cdk bootstrap`、`cdk deploy` はまだ実施していません。
 
@@ -41,6 +39,7 @@ AWS CLIはインストール済みです。認証設定の確認、`cdk bootstra
 infra/
   bin/taskflow.ts                      CDKアプリのエントリーポイント
   lib/stacks/application-stack.ts       アプリ用スタック
+  lib/constructs/network.ts             VPCの定義
   cdk.json                             アプリの実行コマンド
   tsconfig.json                        TypeScript設定
 ```
