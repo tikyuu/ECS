@@ -1,6 +1,6 @@
 # ECS hands-on
 
-ECSの構築・デプロイ・監視・障害対応を学ぶためのタスク管理アプリです。フロントエンドとTypeScriptのCDK実行環境を用意し、現在はVPCのみを定義しています。AWSへのデプロイは未実施です。会話で設定を確認しながら一段階ずつ実装します。
+ECSの構築・デプロイ・監視・障害対応を学ぶためのタスク管理アプリです。フロントエンドとTypeScriptのCDK実行環境を用意し、現在はVPCとPublic A用サブネットを定義しています。AWSへのデプロイは未実施です。会話で設定を確認しながら一段階ずつ実装します。
 
 ## CDK実行環境
 
@@ -29,17 +29,25 @@ npm run infra:synth
 
 `infra:build` はTypeScriptを `infra/dist/` へコンパイルします。`infra:synth` は `tsx` でアプリを実行してCloudFormationテンプレートを `infra/cdk.out/` へ生成します。`npm run typecheck` でフロントとインフラの両方を型チェックできます。
 
-`TaskflowDevStack`（クラス名は `ApplicationStack`）から `Network` Constructを呼び出し、名前 `vpc-ecs-dev`、CIDR `10.0.0.0/20` のVPCを定義しています。DNSは有効です。サブネット・IGW・NATやdefault SG変更用の追加リソースは作成しません。Gitの初回コミットは、このVPC実装を追加する前の空のスタックです。
+ネットワーク専用の `EcsDevNetworkStack`（クラス名は `NetworkStack`）から `Network` Constructを呼び出し、名前 `vpc-ecs-dev`、CIDR `10.0.0.0/20` のVPCを定義しています。DNSは有効です。Gitの初回コミットは、このVPC実装を追加する前の空のスタックです。
 
-設計上のリージョンは東京ですが、現在のスタックのアカウント・リージョンは未固定です。synthはAWS認証情報なしで実行できます。デプロイ先とCDKの推奨feature flagsは別のステップで扱います。
+`EcsDevStack`（クラス名は `ApplicationStack`）はNetworkStackからVPCを受け取り、将来ALBやECSなどを追加するための枠です。現在アプリ側のAWSリソースはなく、synth時には空のスタックについての検証警告が出ます。ネットワークを先にデプロイする依存関係を `app.ts` で明示しています。
+
+L2の `PublicSubnet` でPublic A（`10.0.0.0/24`、`ap-northeast-1a`）を個別に定義しました。VPCの自動サブネット作成は無効のままです。サブネット専用のルートテーブルと関連付けも生成されます。パブリックIPの自動割り当ては無効です。IGWとその経路はまだなく、名前はPublic Aですがインターネット接続はまだできません。NATやdefault SG変更用の追加リソースも作成しません。
+
+`NetworkStack.publicSubnetA` からサブネットを参照できます。個別に作ったサブネットなので、後続リソースへはこの参照を明示して渡します（`vpc.publicSubnets` に自動登録される方式ではありません）。
+
+`config/dev.ts` に東京リージョン（`ap-northeast-1`）、Projectタグ `ecs` などの共通設定をまとめ、`app.ts` から両スタックへ渡します。AWS認証情報はconfigに書きません。アカウントは未固定で、synthはAWS認証情報なしで実行できます。デプロイ先アカウントとCDKの推奨feature flagsは別のステップで扱います。
 
 AWS CLIはインストール済みです。認証設定の確認、`cdk bootstrap`、`cdk deploy` はまだ実施していません。
 
 ```text
 infra/
-  bin/taskflow.ts                      CDKアプリのエントリーポイント
-  lib/stacks/application-stack.ts       アプリ用スタック
-  lib/constructs/network.ts             VPCの定義
+  bin/app.ts                           CDKアプリのエントリーポイント
+  config/dev.ts                        開発環境の共通設定
+  lib/stacks/network-stack.ts           ネットワーク用スタック
+  lib/stacks/application-stack.ts       VPCを受け取るアプリ用スタック
+  lib/constructs/network.ts             VPCとPublic A用サブネットの定義
   cdk.json                             アプリの実行コマンド
   tsconfig.json                        TypeScript設定
 ```

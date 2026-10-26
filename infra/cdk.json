@@ -1,8 +1,8 @@
 {
-  "app": "node --import tsx bin/taskflow.ts",
+  "app": "node --import tsx bin/app.ts",
   "versionReporting": false,
   "watch": {
-    "include": ["bin/**/*.ts", "lib/**/*.ts"],
+    "include": ["bin/**/*.ts", "config/**/*.ts", "lib/**/*.ts"],
     "exclude": ["dist", "cdk.out", "node_modules"]
   }
 }
