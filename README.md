@@ -1,6 +1,6 @@
 # ECS hands-on
 
-ECSの構築・デプロイ・監視・障害対応を学ぶためのタスク管理アプリです。フロントエンドとTypeScriptのCDK実行環境を用意し、現在はVPCとPublic A用サブネットを定義しています。AWSへのデプロイは未実施です。会話で設定を確認しながら一段階ずつ実装します。
+ECSの構築・デプロイ・監視・障害対応を学ぶためのタスク管理アプリです。フロントエンドとTypeScriptのCDK実行環境を用意し、現在はVPC、Public A用サブネット、IGWとVPCへの接続を定義しています。AWSへのデプロイは未実施です。会話で設定を確認しながら一段階ずつ実装します。
 
 ## CDK実行環境
 
@@ -33,7 +33,7 @@ npm run infra:synth
 
 `EcsDevStack`（クラス名は `ApplicationStack`）はNetworkStackからVPCを受け取り、将来ALBやECSなどを追加するための枠です。現在アプリ側のAWSリソースはなく、synth時には空のスタックについての検証警告が出ます。ネットワークを先にデプロイする依存関係を `app.ts` で明示しています。
 
-L2の `PublicSubnet` でPublic A（`10.0.0.0/24`、`ap-northeast-1a`）を個別に定義しました。VPCの自動サブネット作成は無効のままです。サブネット専用のルートテーブルと関連付けも生成されます。パブリックIPの自動割り当ては無効です。IGWとその経路はまだなく、名前はPublic Aですがインターネット接続はまだできません。NATやdefault SG変更用の追加リソースも作成しません。
+L2の `PublicSubnet` でPublic A（`10.0.0.0/24`、`ap-northeast-1a`）を個別に定義しました。VPCの自動サブネット作成は無効のままです。サブネット専用のルートテーブルと関連付けも生成されます。パブリックIPの自動割り当ては無効です。IGW本体とVPCへの接続は `CfnInternetGateway` / `CfnVPCGatewayAttachment` で明示的に定義しています。`subnetConfiguration: []` の構成では `createInternetGateway: true` だけでIGWが自動作成されないためです。IGWへの経路は未追加で、名前はPublic Aですがインターネット接続はまだできません。NATやdefault SG変更用の追加リソースも作成しません。
 
 `NetworkStack.publicSubnetA` からサブネットを参照できます。個別に作ったサブネットなので、後続リソースへはこの参照を明示して渡します（`vpc.publicSubnets` に自動登録される方式ではありません）。
 
@@ -47,7 +47,7 @@ infra/
   config/dev.ts                        開発環境の共通設定
   lib/stacks/network-stack.ts           ネットワーク用スタック
   lib/stacks/application-stack.ts       VPCを受け取るアプリ用スタック
-  lib/constructs/network.ts             VPCとPublic A用サブネットの定義
+  lib/constructs/network.ts             VPC・Public A用サブネット・IGWの定義
   cdk.json                             アプリの実行コマンド
   tsconfig.json                        TypeScript設定
 ```
