@@ -1,4 +1,4 @@
-import { IpAddresses, PublicSubnet, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { CfnInternetGateway, CfnVPCGatewayAttachment, IpAddresses, PublicSubnet, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 
 export class Network extends Construct {
@@ -14,13 +14,20 @@ export class Network extends Construct {
       enableDnsSupport: true,
       enableDnsHostnames: true,
 
-      // サブネットはこの後で個別に定義し、IGW・NATは後のステップで追加する。
+      // サブネットとIGWは個別に定義し、IGWへのルートとNATは後のステップで追加する。
       subnetConfiguration: [],
       natGateways: 0,
       createInternetGateway: false,
 
       // VPC単体の段階では、default SG変更用のCustom Resourceも作らない。
       restrictDefaultSecurityGroup: false,
+    });
+
+    // 自動サブネット作成を使わないため、IGWとVPCへの接続を明示する。
+    const internetGateway = new CfnInternetGateway(this, 'InternetGateway');
+    new CfnVPCGatewayAttachment(this, 'InternetGatewayAttachment', {
+      vpcId: this.vpc.vpcId,
+      internetGatewayId: internetGateway.ref,
     });
 
     this.publicSubnetA = new PublicSubnet(this, 'PublicSubnetA', {
