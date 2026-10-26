@@ -99,11 +99,17 @@ p.symbol('alb', 'alb', 'ALB', '', 500, 605, 'vpc', 48, 160, '#FFFFFF')
 p.symbol('api', 'fargate', 'ECS Fargate / API', '', 275, 795, 'private-a', 48, 230)
 p.symbol('rds', 'rds', 'RDS PostgreSQL', '', 275, 960, 'db-a', 48, 230)
 
+# IGWはサブネット内ではなくVPCに接続するため、VPC境界上に配置する。
+p.cell('igw', '', 476, 446, 120, 48, 'container=1;collapsible=0;fillColor=#FFFFFF;strokeColor=none;', 'vpc')
+p.image('igw-icon', 'igw', 476, 446, 48, 'igw')
+p.text('igw-title', 'IGW', 530, 457, 60, 25, 16, '#172B4D', True, 'igw')
+
 p.edge('dns-lookup', 'browser-icon', 'dns-icon', 'DNS', PURPLE, True, points=[(120,95),(870,95)], exit=(.5,0), entry=(.5,0), both=True)
 p.edge('browser-cf', 'browser-icon', 'cloudfront-icon', 'HTTPS', exit=(1,.5), entry=(0,.5))
 p.edge('cf-static', 'cloudfront-icon', 's3-icon', 'HTTPS / OAC', points=[(580,148),(580,250),(830,250)], exit=(1,.5))
-p.edge('cf-api', 'cloudfront', 'alb-icon', '/api/* / HTTPS', exit=(.5,1))
-p.edge('alb-api', 'alb', 'api-icon', 'HTTP :3000', points=[(500,730),(370,730),(370,819)], entry=(1,.5))
+p.edge('cf-api', 'cloudfront', 'igw-icon', '/api/* / HTTPS', exit=(.5,1))
+p.edge('igw-alb', 'igw-icon', 'alb-icon')
+p.edge('alb-api', 'alb', 'api-icon', 'HTTP :3000', points=[(500,819)], entry=(1,.5))
 p.edge('api-db', 'api', 'rds-icon', 'TLS :5432')
 
 
@@ -121,14 +127,15 @@ q.box('services', 'AWS services', 705, 145, 240, 630, '#CBD2DC', '#FBFCFE', 'reg
 q.symbol('ecr', 'ecr', 'ECR', '', 825, 190, 'services', 48, 180)
 q.symbol('logs', 'cloudwatch', 'CloudWatch Logs', '', 825, 330, 'services', 48, 210)
 q.symbol('secrets', 'secrets', 'Secrets Manager', '', 825, 470, 'services', 48, 210)
-q.symbol('layers', 's3', 'S3 / ECR layers', '', 825, 665, 'services', 48, 210)
+q.symbol('layers', 's3', 'S3 / ECR layers', '', 825, 650, 'services', 48, 210)
 q.edge('api-nat', 'api-icon', 'nat-icon', 'HTTPS', ORANGE, exit=(1,.5), entry=(0,.5))
 q.edge('nat-igw', 'nat-icon', 'igw-icon', '', ORANGE, exit=(1,.5), entry=(0,.5))
 q.edge('igw-ecr', 'igw-icon', 'ecr-icon', '', ORANGE, points=[(680,294),(680,214)], exit=(1,.5), entry=(0,.5))
-q.edge('igw-logs', 'igw-icon', 'logs-icon', '', ORANGE, points=[(690,294),(690,354)], exit=(1,.5), entry=(0,.5))
+# AWSサービスへの分岐位置を揃え、CloudWatch向けの線が他の線を横切らないようにする。
+q.edge('igw-logs', 'igw-icon', 'logs-icon', '', ORANGE, points=[(680,294),(680,354)], exit=(1,.5), entry=(0,.5))
 q.edge('igw-secrets', 'igw-icon', 'secrets-icon', '', ORANGE, points=[(680,294),(680,494)], exit=(1,.5), entry=(0,.5))
 q.edge('api-gateway', 'api-icon', 'gateway-icon', 'HTTPS', '#438A36', points=[(130,294),(130,674)], exit=(0,.5), entry=(0,.5))
-q.edge('gateway-s3', 'gateway-icon', 'layers-icon', '', '#438A36', points=[(680,674),(680,689)], exit=(1,.5), entry=(0,.5))
+q.edge('gateway-s3', 'gateway-icon', 'layers-icon', '', '#438A36', exit=(1,.5), entry=(0,.5))
 
 path = OUT / 'taskflow-aws-v5.drawio'
 ET.ElementTree(document).write(path, encoding='utf-8', xml_declaration=True)
