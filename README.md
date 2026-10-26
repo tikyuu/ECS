@@ -60,7 +60,7 @@ infra/
 
 図中の文章による説明は省き、サービス名・ネットワーク名・CIDR・通信ラベルのみを表示しています。左右のAZと対応するサブネットは同寸です。構成上の補足は以下に記載しています。
 
-1. [全体構成](docs/architecture/taskflow-aws-v5-preview.png)：S3＋CloudFrontの画面配信、VPC・AZ・サブネット、単一ALBからAPI、APIからRDSへの通信
+1. [全体構成](docs/architecture/taskflow-aws-v5-preview.png)：S3＋CloudFrontの画面配信、VPC・AZ・サブネット、CloudFrontからIGW経由で公開ALBへ、ALBからAPI、APIからRDSへの通信
 2. [外向き通信](docs/architecture/taskflow-aws-v5-network.png)：NAT・IGW経由でのECR API・CloudWatch Logs・Secrets Managerへの通信と、S3 Gateway経由のイメージレイヤー取得
 
 フロントは非公開S3バケット＋CloudFront（OAC）で配信し、ECSはAPIのみ動かします。CloudFrontは通常パスをS3へ、`/api/*`をALBへ転送し、APIはキャッシュしない案です。ALBのオリジン接続には東京リージョン、CloudFrontの閲覧者向けHTTPSにはus-east-1のACM証明書を使用します。
