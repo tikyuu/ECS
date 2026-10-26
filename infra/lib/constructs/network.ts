@@ -14,7 +14,7 @@ export class Network extends Construct {
       enableDnsSupport: true,
       enableDnsHostnames: true,
 
-      // サブネットとIGWは個別に定義し、IGWへのルートとNATは後のステップで追加する。
+      // サブネット・IGW・ルートは個別に定義し、NATは後のステップで追加する。
       subnetConfiguration: [],
       natGateways: 0,
       createInternetGateway: false,
@@ -25,7 +25,7 @@ export class Network extends Construct {
 
     // 自動サブネット作成を使わないため、IGWとVPCへの接続を明示する。
     const internetGateway = new CfnInternetGateway(this, 'InternetGateway');
-    new CfnVPCGatewayAttachment(this, 'InternetGatewayAttachment', {
+    const internetGatewayAttachment = new CfnVPCGatewayAttachment(this, 'InternetGatewayAttachment', {
       vpcId: this.vpc.vpcId,
       internetGatewayId: internetGateway.ref,
     });
@@ -36,5 +36,8 @@ export class Network extends Construct {
       cidrBlock: '10.0.0.0/24',
       mapPublicIpOnLaunch: false,
     });
+
+    // IGWのVPC接続後に、Public Aのインターネット向けIPv4ルートを作成する。
+    this.publicSubnetA.addDefaultInternetRoute(internetGateway.ref, internetGatewayAttachment);
   }
 }

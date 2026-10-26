@@ -33,7 +33,7 @@ npm run infra:synth
 
 `EcsDevStack`（クラス名は `ApplicationStack`）はNetworkStackからVPCを受け取り、将来ALBやECSなどを追加するための枠です。現在アプリ側のAWSリソースはなく、synth時には空のスタックについての検証警告が出ます。ネットワークを先にデプロイする依存関係を `app.ts` で明示しています。
 
-L2の `PublicSubnet` でPublic A（`10.0.0.0/24`、`ap-northeast-1a`）を個別に定義しました。VPCの自動サブネット作成は無効のままです。サブネット専用のルートテーブルと関連付けも生成されます。パブリックIPの自動割り当ては無効です。IGW本体とVPCへの接続は `CfnInternetGateway` / `CfnVPCGatewayAttachment` で明示的に定義しています。`subnetConfiguration: []` の構成では `createInternetGateway: true` だけでIGWが自動作成されないためです。IGWへの経路は未追加で、名前はPublic Aですがインターネット接続はまだできません。NATやdefault SG変更用の追加リソースも作成しません。
+L2の `PublicSubnet` でPublic A（`10.0.0.0/24`、`ap-northeast-1a`）を個別に定義しました。VPCの自動サブネット作成は無効のままです。サブネット専用のルートテーブルと関連付けも生成されます。パブリックIPの自動割り当ては無効です。IGW本体とVPCへの接続は `CfnInternetGateway` / `CfnVPCGatewayAttachment` で明示的に定義しています。`subnetConfiguration: []` の構成では `createInternetGateway: true` だけでIGWが自動作成されないためです。Public Aには `addDefaultInternetRoute` で `0.0.0.0/0 → IGW` を追加し、IGWのVPC接続後にルートを作成する依存関係も設定しています。VPC内の通信は既存のlocal経路を使います。実際のインターネット通信には、配置するリソースのパブリックIPやセキュリティグループなどの設定も必要です。NATやdefault SG変更用の追加リソースも作成しません。
 
 `NetworkStack.publicSubnetA` からサブネットを参照できます。個別に作ったサブネットなので、後続リソースへはこの参照を明示して渡します（`vpc.publicSubnets` に自動登録される方式ではありません）。
 
