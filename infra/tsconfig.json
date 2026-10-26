@@ -15,6 +15,6 @@
     "sourceMap": true,
     "types": ["node"]
   },
-  "include": ["bin/**/*.ts", "config/**/*.ts", "lib/**/*.ts"],
+  "include": ["bin/**/*.ts", "config/**/*.ts", "lib/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "cdk.out", "dist"]
 }

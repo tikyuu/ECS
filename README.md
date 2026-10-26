@@ -1,6 +1,6 @@
 # ECS hands-on
 
-ECSの構築・デプロイ・監視・障害対応を学ぶためのタスク管理アプリです。フロントエンドとTypeScriptのCDK実行環境を用意し、現在はVPC、Public A用サブネット、IGWとVPCへの接続を定義しています。AWSへのデプロイは未実施です。会話で設定を確認しながら一段階ずつ実装します。
+ECSの構築・デプロイ・監視・障害対応を学ぶためのタスク管理アプリです。フロントエンドとTypeScriptのCDK実行環境を用意し、現在はVPC、5つのサブネットとルート、IGW、NAT Gateway 1台、S3 Gatewayエンドポイントを定義しています。AWSへのデプロイは未実施です。会話で設定を確認しながら一段階ずつ実装します。
 
 ## CDK実行環境
 
@@ -25,17 +25,34 @@ npm run cdk -- --version
 npm run cdk -- ls
 npm run infra:build
 npm run infra:synth
+npm run test --workspace @ecs-hands-on/infra
 ```
 
-`infra:build` はTypeScriptを `infra/dist/` へコンパイルします。`infra:synth` は `tsx` でアプリを実行してCloudFormationテンプレートを `infra/cdk.out/` へ生成します。`npm run typecheck` でフロントとインフラの両方を型チェックできます。
+`infra:build` はTypeScriptを `infra/dist/` へコンパイルします。`infra:synth` は `tsx` でアプリを実行してCloudFormationテンプレートを `infra/cdk.out/` へ生成します。`npm run typecheck` でフロントとインフラの両方を型チェックできます。インフラのテストはAWSに接続せず、生成テンプレートのCIDR・AZ・ルート・DBの外向き経路の有無・NAT・S3エンドポイントの関連付けを検証します。
 
 ネットワーク専用の `EcsDevNetworkStack`（クラス名は `NetworkStack`）から `Network` Constructを呼び出し、名前 `vpc-ecs-dev`、CIDR `10.0.0.0/20` のVPCを定義しています。DNSは有効です。Gitの初回コミットは、このVPC実装を追加する前の空のスタックです。
 
 `EcsDevStack`（クラス名は `ApplicationStack`）はNetworkStackからVPCを受け取り、将来ALBやECSなどを追加するための枠です。現在アプリ側のAWSリソースはなく、synth時には空のスタックについての検証警告が出ます。ネットワークを先にデプロイする依存関係を `app.ts` で明示しています。
 
-L2の `PublicSubnet` でPublic A（`10.0.0.0/24`、`ap-northeast-1a`）を個別に定義しました。VPCの自動サブネット作成は無効のままです。サブネット専用のルートテーブルと関連付けも生成されます。パブリックIPの自動割り当ては無効です。IGW本体とVPCへの接続は `CfnInternetGateway` / `CfnVPCGatewayAttachment` で明示的に定義しています。`subnetConfiguration: []` の構成では `createInternetGateway: true` だけでIGWが自動作成されないためです。Public Aには `addDefaultInternetRoute` で `0.0.0.0/0 → IGW` を追加し、IGWのVPC接続後にルートを作成する依存関係も設定しています。VPC内の通信は既存のlocal経路を使います。実際のインターネット通信には、配置するリソースのパブリックIPやセキュリティグループなどの設定も必要です。NATやdefault SG変更用の追加リソースも作成しません。
+サブネットは自動作成を使わず、次の5つを個別に定義しています。各サブネットに専用のルートテーブルを持たせ、パブリックIPの自動割り当てはすべて無効です。
 
-`NetworkStack.publicSubnetA` からサブネットを参照できます。個別に作ったサブネットなので、後続リソースへはこの参照を明示して渡します（`vpc.publicSubnets` に自動登録される方式ではありません）。
+| サブネット | AZ | CIDR | 用途（後続実装） | 外向き経路 |
+| --- | --- | --- | --- | --- |
+| Public A | ap-northeast-1a | 10.0.0.0/24 | ALB・NAT | 0.0.0.0/0 → IGW |
+| Public B | ap-northeast-1c | 10.0.1.0/24 | ALB | 0.0.0.0/0 → IGW |
+| Private A | ap-northeast-1a | 10.0.10.0/24 | ECS API | 0.0.0.0/0 → NAT、S3 → Gatewayエンドポイント |
+| DB A | ap-northeast-1a | 10.0.12.0/24 | RDS | デフォルトルートなし |
+| DB B | ap-northeast-1c | 10.0.13.0/24 | RDSのDBサブネットグループ | デフォルトルートなし |
+
+すべてVPCの `10.0.0.0/20` 内で重複しないCIDRです。未使用の範囲は将来のサブネット追加用に残しています。VPC内の通信はlocal経路を使い、通信を許可する範囲は後続のセキュリティグループで設定します。
+
+IGW本体とVPCへの接続は `CfnInternetGateway` / `CfnVPCGatewayAttachment` で明示しています。`subnetConfiguration: []` では `createInternetGateway: true` だけで自動作成されないためです。Public A/Bのデフォルトルートは、IGWのVPC接続後に作成します。
+
+Public Aの `addNatGateway()` でNAT GatewayとElastic IPを1つずつ定義しています。NATはPublic AのIGW向けルート作成後に作成し、Private Aのデフォルトルートから参照します。VPCの `natGateways: 0` は自動作成を無効にする指定で、個別作成したNATは1台です。NATはAZ-Aに集約しており、AZ-A障害時の外向き通信の冗長化は行っていません。
+
+S3 GatewayエンドポイントはPrivate Aのルートテーブルだけに関連付けています。同一リージョンのS3向け経路はデフォルトルートより優先され、S3通信はNATを経由しません。エンドポイントの作成でS3バケットへのアクセス権が付与されるわけではなく、ECSのIAM権限等は後続で設定します。DB用サブネットにはNAT・IGW向けルートもエンドポイントの関連付けもありません。Interfaceエンドポイントやdefault SG変更用リソースは追加していません。
+
+`NetworkStack` の `publicSubnetA` / `publicSubnetB` / `privateSubnetA` / `dbSubnetA` / `dbSubnetB` から参照できます。個別作成なので `vpc.publicSubnets` 等には自動登録されません。ALB・ECS・RDSを追加するときは、これらを明示して渡します。アプリ用スタックは現在VPCのみを受け取り、ALB・ECS・RDS・DBサブネットグループは未実装です。
 
 `config/dev.ts` に東京リージョン（`ap-northeast-1`）、Projectタグ `ecs` などの共通設定をまとめ、`app.ts` から両スタックへ渡します。AWS認証情報はconfigに書きません。アカウントは未固定で、synthはAWS認証情報なしで実行できます。デプロイ先アカウントとCDKの推奨feature flagsは別のステップで扱います。
 
@@ -47,14 +64,15 @@ infra/
   config/dev.ts                        開発環境の共通設定
   lib/stacks/network-stack.ts           ネットワーク用スタック
   lib/stacks/application-stack.ts       VPCを受け取るアプリ用スタック
-  lib/constructs/network.ts             VPC・Public A用サブネット・IGWの定義
+  lib/constructs/network.ts             VPC・5サブネット・IGW・NAT・S3エンドポイントの定義
+  test/network-stack.test.ts            ネットワーク構成の検証
   cdk.json                             アプリの実行コマンド
   tsconfig.json                        TypeScript設定
 ```
 
 ## AWS構成図（設計案）
 
-構成図はVPCのCIDR変更（`/16` → `/20`）前の案です。サブネットは次の会話で再設計し、合意後に図とコードを更新します。図中のDB用 `10.0.20.0/24`・`10.0.21.0/24` は新しいVPCの範囲外なので、そのまま採用しません。
+VPC・サブネットのCIDRとAZは実装に合わせています。AZ-Aは `ap-northeast-1a`、AZ-Bは `ap-northeast-1c` です。図中のALB・ECS・RDS・CloudFront等は今後の設計案で、ネットワーク以外のAWSリソースは未実装です。
 
 [編集可能なdraw.ioファイル](docs/architecture/taskflow-aws-v5.drawio) は2ページ構成です。
 
@@ -65,7 +83,7 @@ infra/
 
 フロントは非公開S3バケット＋CloudFront（OAC）で配信し、ECSはAPIのみ動かします。CloudFrontは通常パスをS3へ、`/api/*`をALBへ転送し、APIはキャッシュしない案です。ALBのオリジン接続には東京リージョン、CloudFrontの閲覧者向けHTTPSにはus-east-1のACM証明書を使用します。
 
-ECSとRDSはAZ-Aのみで動かし、単一ALBを2AZで有効化します。RDSのDB subnet groupに必要なDBサブネットもAZ-Bに用意します。外向き通信はNAT 1台＋無料のS3 Gatewayエンドポイント1個を使う案です。Interfaceエンドポイントは作成しません。`tasks.tikyuu.click`、`origin.tasks.tikyuu.click`、CIDR、ポートは提案値です。AWSリソースは未構築です。
+ECSとRDSはAZ-Aのみで動かし、単一ALBを2AZで有効化します。RDSのDB subnet groupに必要なDBサブネットもAZ-Bに定義済みです。外向き通信はNAT 1台＋S3 Gatewayエンドポイント1個を定義済みです。Interfaceエンドポイントは作成しません。`tasks.tikyuu.click`、`origin.tasks.tikyuu.click`、ポートは提案値です。AWSリソースは未構築です。
 
 [AWS公式アイコンページ](https://aws.amazon.com/architecture/icons/)で2026年10月25日に確認した最新配布パッケージ（2026年7月31日版）のSVGをファイル内に埋め込んでいます。出典とハッシュは [assets/sources.json](docs/architecture/assets/sources.json) に記録しています。各ページのSVG版も同じフォルダにあります。
 
@@ -129,7 +147,7 @@ apps/web/
 
 ## 次に相談すること
 
-API・認証・AWSリソースは未実装です。以下は候補で、まだ確定していません。
+API・認証・アプリ用AWSリソースは未実装です。以下は今後詳細を決める項目です。
 
 1. フロントはS3 + CloudFrontで配信する方針。パス別のAPI転送とオリジン保護の詳細
 2. バックエンドの言語・フレームワークと、タスクのAPI仕様
