@@ -10,3 +10,18 @@ dist/
 playwright-report/
 test-results/
 cdk.out/
+
+# ローカル認証情報・状態・生成物を公開しない
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+crash.log
+crash.*.log
+.venv/
+__pycache__/
