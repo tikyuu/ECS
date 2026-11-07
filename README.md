@@ -155,3 +155,9 @@ API・認証・アプリ用AWSリソースは未実装です。以下は今後�
 4. CDKでのネットワーク、ECS、権限、ログ、デプロイの構成
 
 バックエンドの仕様が決まったら `src/tasks.ts` の保存処理をHTTP APIに置き換えます。非同期化に伴って画面に通信中・リトライ等の制御も加えます。
+
+## セキュリティ検査
+
+[![Security checks](https://github.com/tikyuu/ECS/actions/workflows/security.yml/badge.svg)](https://github.com/tikyuu/ECS/actions/workflows/security.yml)
+
+[検査の内容と制約](SECURITY.md)を参照してください。PRで秘密情報・依存関係を検査し、IaCの指摘も報告します。検査結果と対応履歴を確認しながら保守します。
